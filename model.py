@@ -15,6 +15,12 @@ import cv2
 from dataset import get_dataloaders
 from locate import Trans, invTrans, generate_local
 
+# GLOBAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
+# LOCAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
+
+# Colab
+GLOBAL_BRANCH_DIR = '/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/baseline/model/best_model.pth.tar'
+LOCAL_BRANCH_DIR = '/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/baseline/model/best_model.pth.tar'
 
 model_urls = {
     'densenet121': 'https://download.pytorch.org/models/densenet121-a639ec97.pth',
@@ -356,8 +362,7 @@ def resnet101(pretrained=False, **kwargs):
     return model
 
 
-GLOBAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
-LOCAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
+
 
 
 # attention guided CNN using resnet50 as backbone

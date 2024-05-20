@@ -70,6 +70,11 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         preds = (outputs.data > 0.5).type(torch.cuda.FloatTensor)
 
         # update loss metric
+        
+        # Change [64] to [64,1]
+        labels = labels.unsqueeze(1)
+        weights = weights.unsqueeze(1)
+        
         loss = F.binary_cross_entropy(outputs, labels.float(), weights)
         losses.update(loss.item(), inputs.size(0))
 
@@ -213,8 +218,8 @@ def main():
         net.load_state_dict(state_dict)
         net.set_fcweights()
     else:
-        global_branch_state = torch.load(GLOBAL_BRANCH_DIR)
-        local_branch_state = torch.load(LOCAL_BRANCH_DIR)
+        global_branch_state = torch.load(GLOBAL_BRANCH_DIR)['net']
+        local_branch_state = torch.load(LOCAL_BRANCH_DIR)['net']
         net = fusenet(global_branch_state, local_branch_state)
 
     net.to(config.device)
