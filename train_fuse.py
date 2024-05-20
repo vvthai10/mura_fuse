@@ -131,7 +131,11 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             preds = (outputs.data > 0.5).type(torch.cuda.FloatTensor)
             # preds = torch.argmax(outputs, dim=1)
 
-            # update loss metric
+            # Change [16] to [16,1]
+            labels = labels.unsqueeze(1)
+            weights = weights.unsqueeze(1)
+            
+            # update loss metric    
             loss = F.binary_cross_entropy(outputs, labels.float(), weights)
             # loss = criterion(outputs, labels)
             losses.update(loss.item(), inputs.size(0))
@@ -218,8 +222,8 @@ def main():
         net.load_state_dict(state_dict)
         net.set_fcweights()
     else:
-        global_branch_state = torch.load(GLOBAL_BRANCH_DIR)['net']
-        local_branch_state = torch.load(LOCAL_BRANCH_DIR)['net']
+        global_branch_state = torch.load(GLOBAL_BRANCH_DIR)
+        local_branch_state = torch.load(LOCAL_BRANCH_DIR)
         net = fusenet(global_branch_state, local_branch_state)
 
     net.to(config.device)
@@ -238,7 +242,7 @@ def main():
     # start session
     clock = sess.clock
     tb_writer = sess.tb_writer
-    sess.save_checkpoint('start.pth.tar')
+    sess.save_checkpoint('fuse_start.pth.tar')
 
     # set criterion, optimizer and scheduler
     criterion = nn.BCELoss().cuda()
@@ -270,11 +274,11 @@ def main():
 
         if valid_out['epoch_auc'] > sess.best_val_acc:
             sess.best_val_acc = valid_out['epoch_auc']
-            sess.save_checkpoint('best_model.pth.tar')
+            sess.save_checkpoint('fuse_best_model.pth.tar')
 
-        if clock.epoch % 10 == 0:
-            sess.save_checkpoint('epoch{}.pth.tar'.format(clock.epoch))
-        sess.save_checkpoint('latest.pth.tar')
+        if clock.epoch % 3 == 0:
+            sess.save_checkpoint('fuse_epoch{}.pth.tar'.format(clock.epoch))
+        sess.save_checkpoint('fuse_latest.pth.tar')
 
         clock.tock()
 

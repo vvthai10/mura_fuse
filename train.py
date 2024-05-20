@@ -38,7 +38,11 @@ class Session:
             'best_val_acc': self.best_val_acc,
             'clock': self.clock.make_checkpoint(),
         }
+        print("\n")
+        print(f"Save ckpt to {ckp_path}...")
         torch.save(tmp, ckp_path)
+        print("Done!")
+        print("\n")
 
     def load_checkpoint(self, ckp_path):
         checkpoint = torch.load(ckp_path)
@@ -69,6 +73,11 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         preds = (outputs.data > 0.5).type(torch.cuda.FloatTensor)
 
         # update loss metric
+                
+        # Change [64] to [64,1]
+        labels = labels.unsqueeze(1)
+        weights = weights.unsqueeze(1)
+        
         loss = F.binary_cross_entropy(outputs, labels.float(), weights)
         # loss = criterion(outputs, labels)
         losses.update(loss.item(), inputs.size(0))
@@ -126,6 +135,10 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             outputs = model(inputs)
             preds = (outputs.data > 0.5).type(torch.cuda.FloatTensor)
 
+            # Change [16] to [16,1]
+            labels = labels.unsqueeze(1)
+            weights = weights.unsqueeze(1)
+        
             # update loss metric
             loss = F.binary_cross_entropy(outputs, labels.float(), weights)
             # loss = criterion(outputs, labels)
@@ -191,8 +204,8 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', default=50, type=int, help='epoch number')
-    parser.add_argument('-b', '--batch_size', default=256, type=int, help='mini-batch size')
-    parser.add_argument('--lr', '--learning_rate', default=1e-3, type=float, help='initial learning rate')
+    parser.add_argument('-b', '--batch_size', default=16, type=int, help='mini-batch size')
+    parser.add_argument('--lr', '--learning_rate', default=1e-4, type=float, help='initial learning rate')
     parser.add_argument('-c', '--continue', dest='continue_path', type=str, required=False)
     parser.add_argument('--exp_name', default=config.exp_name, type=str, required=False)
     parser.add_argument('--drop_rate', default=0, type=float, required=False)
@@ -274,8 +287,10 @@ def main():
             sess.best_val_acc = valid_out['epoch_auc']
             sess.save_checkpoint('best_model.pth.tar')
 
-        if clock.epoch % 10 == 0:
+        # Save after each 5 epoch.
+        if clock.epoch % 5 == 0:
             sess.save_checkpoint('epoch{}.pth.tar'.format(clock.epoch))
+            
         sess.save_checkpoint('latest.pth.tar')
 
         clock.tock()
