@@ -18,9 +18,12 @@ from locate import Trans, invTrans, generate_local
 # GLOBAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
 # LOCAL_BRANCH_DIR = '/data1/wurundi/ML/state_dicts/resnet50_b16_state_dict.pth.tar'
 
-# Colab
-GLOBAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
-LOCAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
+# Colab best_model.pth.tar
+# GLOBAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
+# LOCAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
+
+GLOBAL_BRANCH_DIR = "./models/best_model.pth.tar"
+LOCAL_BRANCH_DIR = "./models/best_model.pth.tar"
 
 model_urls = {
     'densenet121': 'https://download.pytorch.org/models/densenet121-a639ec97.pth',

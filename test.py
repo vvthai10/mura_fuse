@@ -6,6 +6,8 @@ from torchvision import transforms
 import argparse
 from PIL import Image
 from common import config
+from model import resnet50
+
 
 Trans = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -132,54 +134,7 @@ def localize2(cam_feature, ori_image):
 
     return img_with_window
 
-
-def generate_local(cam_features, inputs):
-    """
-    :param cam_features: numpy array of shape = (B, 224, 224), pixel value range [0, 255]
-    :param inputs: tensor of size = (B, 3, 224, 224), with mean and std as Imagenet
-    :return: local image
-    """
-    b = cam_features.shape[0]
-    local_out = []
-    for k in range(b):
-        ori_img = invTrans(inputs[k]).cpu().numpy()
-        ori_img = np.transpose(ori_img, (1, 2, 0))
-        ori_img = np.uint8(ori_img * 255)
-
-        crop = np.uint8(cam_features[k] > 0.7)
-        ret, markers = cv2.connectedComponents(crop)
-        branch_size = np.zeros(ret)
-        h = 224
-        w = 224
-        for i in range(h):
-            for j in range(w):
-                t = int(markers[i][j])
-                branch_size[t] += 1
-        branch_size[0] = 0
-        max_branch = np.argmax(branch_size)
-        mini = h
-        minj = w
-        maxi = -1
-        maxj = -1
-        for i in range(h):
-            for j in range(w):
-                if markers[i][j] == max_branch:
-                    if i < mini:
-                        mini = i
-                    if i > maxi:
-                        maxi = i
-                    if j < minj:
-                        minj = j
-                    if j > maxj:
-                        maxj = j
-        local_img = ori_img[mini: maxi + 1, minj: maxj + 1, :]
-        local_img = cv2.resize(local_img, (224, 224))
-        local_img = Image.fromarray(local_img)
-        local_img = Normal(local_img)
-        local_out += [local_img]
-    local_out = torch.stack(local_out)
-    return local_out
-
+from model import resnet50, ResNet
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -187,9 +142,13 @@ if __name__ == '__main__':
                         default='models/resnet50_b16.pth.tar', type=str, required=False, help='filepath of the model')
     parser.add_argument('--img_path', type=str, required=False, help='filepath of query input')
     args = parser.parse_args()
-
-    net = torch.load(args.model_path)['net']
-    print(net.keys())
+    
+    net = resnet50(pretrained=True)
+    net.load_state_dict(torch.load(args.model_path)['net'])
+    net = torch.nn.DataParallel(net)
+    
+    # net = torch.load(args.model_path)['net']
+    
     ori_image = Image.open(args.img_path).convert('RGB')
     cam_feature = generate_grad_cam(net, ori_image)
     result1 = localize(cam_feature, ori_image)

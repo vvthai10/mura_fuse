@@ -6,13 +6,13 @@ class Config:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     exp_name = 'baseline'
     data_dir = './data/'
-    exp_dir = os.path.join('/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data', exp_name)
+    exp_dir = os.path.join(data_dir, exp_name)
     log_dir = os.path.join(exp_dir, 'log/')
     model_dir = os.path.join(exp_dir, 'model/')
     study_type = ['ELBOW', 'FINGER', 'FOREARM', 'HAND', 'HUMERUS', 'SHOULDER', 'WRIST']
 
     def make_dir(self):
-        self.exp_dir = os.path.join('/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data', self.exp_name)
+        self.exp_dir = os.path.join('data', self.exp_name)
         if not os.path.exists(self.exp_dir):
             os.makedirs(os.path.join(self.exp_dir, 'model'))
             os.makedirs(os.path.join(self.exp_dir, 'log'))
