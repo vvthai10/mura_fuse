@@ -200,7 +200,7 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', default=50, type=int, help='epoch number')
-    parser.add_argument('-b', '--batch_size', default=64, type=int, help='mini-batch size')
+    parser.add_argument('-b', '--batch_size', default=16, type=int, help='mini-batch size')
     parser.add_argument('--lr', '--learning_rate', default=1e-4, type=float, help='initial learning rate')
     parser.add_argument('-c', '--continue', dest='continue_path', type=str, required=False)
     parser.add_argument('--state_dict', default=None, type=str, required=False,
@@ -276,9 +276,9 @@ def main():
             sess.best_val_acc = valid_out['epoch_auc']
             sess.save_checkpoint('fuse_best_model.pth.tar')
 
-        if clock.epoch % 3 == 0:
-            sess.save_checkpoint('fuse_epoch{}.pth.tar'.format(clock.epoch))
-        sess.save_checkpoint('fuse_latest.pth.tar')
+        # if clock.epoch % 3 == 0:
+        sess.save_checkpoint('fuse_epoch{}.pth.tar'.format(clock.epoch))
+        # sess.save_checkpoint('fuse_latest.pth.tar')
 
         clock.tock()
 

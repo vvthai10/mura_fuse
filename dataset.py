@@ -45,7 +45,6 @@ class MURA_Dataset(Dataset):
         :param img_filename: the file name of image data
         :return: the number of image
         """
-        check = self._image_re.search(img_filename).group(1)
         return int(self._image_re.search(img_filename).group(1))
 
     def _parse_study_type(self, img_filename):
@@ -60,13 +59,14 @@ class MURA_Dataset(Dataset):
 
     def __getitem__(self, idx):
         img_filename = self.frame.iloc[idx, 0]
+        # print(img_filename)
         patient = self._parse_patient(img_filename)
         study = self._parse_study(img_filename)
         image_num = self._parse_image(img_filename)
         study_type = self._parse_study_type(img_filename)
 
         file_path = os.path.join(self.data_dir, img_filename)
-        file_path = file_path.replace("MURA-v1.1", "mura")
+        # file_path = file_path.replace("MURA-v1.1", "mura")
         image = Image.open(file_path).convert('RGB')
         label = self.frame.iloc[idx, 1]
 
@@ -117,7 +117,7 @@ def get_dataloaders(name, batch_size, shuffle, num_workers=32, data_dir=config.d
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]),
     }
-    image_dataset = MURA_Dataset(data_dir=data_dir, csv_file='mura/%s.csv' % name,
+    image_dataset = MURA_Dataset(data_dir=data_dir, csv_file='%s.csv' % name,
                                  transform=data_transforms[name])
     dataloader = DataLoader(image_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
@@ -128,7 +128,7 @@ def calc_data_weights():
     """
     :return: the weights of positive and negative data of each type of study
     """
-    frame = pd.read_csv('./data/mura/train.csv', header=None)
+    frame = pd.read_csv('./data/train.csv', header=None)
     n_t = {t: 0 for t in config.study_type}
     a_t = {t: 0 for t in config.study_type}
     w_t0 = {t: 0.0 for t in config.study_type}
@@ -138,6 +138,7 @@ def calc_data_weights():
 
     for idx in range(len(frame)):
         img_filename = frame.iloc[idx, 0]
+        # print(img_filename)
         study_type = study_type_re.search(img_filename).group(1)
 
         label = frame.iloc[idx, 1]

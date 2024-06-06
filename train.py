@@ -288,7 +288,7 @@ def main():
             sess.save_checkpoint('best_model.pth.tar')
 
         # Save after each 5 epoch.
-        if clock.epoch % 5 == 0:
+        if clock.epoch % 2 == 0:
             sess.save_checkpoint('epoch{}.pth.tar'.format(clock.epoch))
             
         sess.save_checkpoint('latest.pth.tar')

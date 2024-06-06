@@ -1,13 +1,14 @@
+import os
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
-import argparse
 from PIL import Image
-from common import config
-from model import resnet50
-
+from torchvision import transforms
+from tqdm import tqdm
+from model import resnet50, fusenet
+import shutil
+from pathlib import Path
 
 Trans = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -45,8 +46,9 @@ def generate_grad_cam(net, ori_image):
         nonlocal gradient
         gradient = grad_out[0].data.cpu().numpy()
 
-    net.module.layer4.register_forward_hook(func_f)
-    net.module.layer4.register_backward_hook(func_b)
+    # print(net.module)
+    net.module.global_branch.layer4.register_forward_hook(func_f)
+    net.module.global_branch.layer4.register_backward_hook(func_b)
 
     out = net(input_image.unsqueeze(0))
 
@@ -134,26 +136,63 @@ def localize2(cam_feature, ori_image):
 
     return img_with_window
 
-from model import resnet50, ResNet
+
+def is_valid_image(file_name):
+    if not os.path.isfile(file_name):
+        return False
+    try:
+        with Image.open(file_name) as img:
+            img.verify()
+            return True
+    except (IOError, SyntaxError):
+        return False
+
+
+def get_all_files(dirpath):
+    return sum(
+        [
+            [os.path.join(os_walks[0], f) for f in os_walks[2]]
+            for os_walks in os.walk(dirpath)
+        ],
+        [],
+    )
+
+
+def copy(src_path, dst_path):
+    os.makedirs(dst_path.parent, exist_ok=True)
+    shutil.copyfile(src_path, dst_path)
+
+
+def get_all_images(dirpath):
+    return [p for p in get_all_files(dirpath) if is_valid_image(p)]
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--model_path',
-                        default='models/resnet50_b16.pth.tar', type=str, required=False, help='filepath of the model')
-    parser.add_argument('--img_path', type=str, required=False, help='filepath of query input')
-    args = parser.parse_args()
-    
-    net = resnet50(pretrained=True)
-    net.load_state_dict(torch.load(args.model_path)['net'])
-    net = torch.nn.DataParallel(net)
-    
-    # net = torch.load(args.model_path)['net']
-    
-    ori_image = Image.open(args.img_path).convert('RGB')
-    cam_feature = generate_grad_cam(net, ori_image)
-    result1 = localize(cam_feature, ori_image)
-    result2 = localize2(cam_feature, ori_image)
-    result2 = Image.fromarray(result2)
+    # net = resnet50(pretrained=True)
 
-    cv2.imwrite(args.img_path[:-4] + "_m.png", result1)
-    result2.save(args.img_path[:-4] + "_w.png")
+    # net.load_state_dict(
+    #     torch.load("./output/lqn_mura_v2/model/fuse_start.pth.tar")
+    # )
+    # net = torch.nn.DataParallel(net)
+    # checkpoint = torch.load("./models/fuse_start.pth.tar")
+    # print(checkpoint['state_dict'].keys())
+    
+    global_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")['net']
+    local_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")['net']
+    net = fusenet(global_branch, local_branch)
+    net = torch.nn.DataParallel(net)
+
+    imgs = get_all_images("./data/processed-lqn")[:1]
+    for img_path in tqdm(imgs, desc="Localize "):
+        ori_image = Image.open(img_path).convert('RGB')
+        cam_feature = generate_grad_cam(net, ori_image)
+        result1 = localize(cam_feature, ori_image)
+        # result2 = localize2(cam_feature, ori_image)
+        # result2 = Image.fromarray(result2)
+
+        new_path = img_path.replace("processed-lqn", "test")
+        os.makedirs(Path(new_path).parent, exist_ok=True)
+
+        cv2.imwrite(new_path, result1)
+        print(f"Done {new_path}")
+        # result2.save(img_path[:-4] + "_w.png")

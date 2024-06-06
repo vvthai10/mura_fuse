@@ -167,3 +167,6 @@ ckpt/
 data/
 models/
 sample/
+heatmap-lqn-1/
+heatmap-lqn-2/
+output/
