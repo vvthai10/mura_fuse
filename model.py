@@ -22,8 +22,8 @@ from locate import Trans, invTrans, generate_local
 # GLOBAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
 # LOCAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/data/baseline/model/best_model.pth.tar"
 
-GLOBAL_BRANCH_DIR = "./output/lqn_mura_v2/model/best_model.pth.tar"
-LOCAL_BRANCH_DIR = "./output/lqn_mura_v2/model/best_model.pth.tar"
+GLOBAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/lqn_mura_v2/models/best_model.pth.tar"
+LOCAL_BRANCH_DIR = "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse/lqn_mura_v2/models/best_model.pth.tar"
 
 model_urls = {
     'densenet121': 'https://download.pytorch.org/models/densenet121-a639ec97.pth',
@@ -363,9 +363,6 @@ def resnet101(pretrained=False, **kwargs):
         state_dict.pop('fc.bias')
         model.load_state_dict(state_dict, strict=False)
     return model
-
-
-
 
 
 # attention guided CNN using resnet50 as backbone

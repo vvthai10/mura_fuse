@@ -28,7 +28,10 @@ class Config:
     ]
 
     def make_dir(self):
-        self.exp_dir = os.path.join("output", self.exp_name)
+        self.exp_dir = os.path.join(
+            "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse",
+            self.exp_name,
+        )
         if not os.path.exists(self.exp_dir):
             os.makedirs(os.path.join(self.exp_dir, "model"))
             os.makedirs(os.path.join(self.exp_dir, "log"))
