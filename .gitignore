@@ -170,4 +170,7 @@ sample/
 heatmap-lqn-1/
 heatmap-lqn-2/
 output/
-lqn2mura.zip
+*.zip
+heatmap-lqn/
+processed-lqn/
+test/
