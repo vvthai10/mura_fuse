@@ -10,21 +10,30 @@ from model import resnet50, fusenet
 import shutil
 from pathlib import Path
 
-Trans = transforms.Compose([
+Trans = transforms.Compose(
+    [
         transforms.Resize((256, 256)),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
 
-Normal = transforms.Compose([
+Normal = transforms.Compose(
+    [
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
 
-invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.], std=[1/0.229, 1/0.224, 1/0.225]),
-                               transforms.Normalize(mean=[-0.485, -0.456, -0.406], std=[1., 1., 1.]),
-                               ])
+invTrans = transforms.Compose(
+    [
+        transforms.Normalize(
+            mean=[0.0, 0.0, 0.0], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
+        ),
+        transforms.Normalize(mean=[-0.485, -0.456, -0.406], std=[1.0, 1.0, 1.0]),
+    ]
+)
 
 
 def generate_grad_cam(net, ori_image):
@@ -52,7 +61,7 @@ def generate_grad_cam(net, ori_image):
 
     out = net(input_image.unsqueeze(0))
 
-    pred = (out.data > 0.5)
+    pred = out.data > 0.5
 
     net.zero_grad()
 
@@ -83,8 +92,12 @@ def localize(cam_feature, ori_image):
     """
     ori_image = np.array(ori_image)
     activation_heatmap = cv2.applyColorMap(cam_feature, cv2.COLORMAP_JET)
-    activation_heatmap = cv2.resize(activation_heatmap, (ori_image.shape[1], ori_image.shape[0]))
-    img_with_heatmap = 0.15 * np.float32(activation_heatmap) + 0.85 * np.float32(ori_image)
+    activation_heatmap = cv2.resize(
+        activation_heatmap, (ori_image.shape[1], ori_image.shape[0])
+    )
+    img_with_heatmap = 0.15 * np.float32(activation_heatmap) + 0.85 * np.float32(
+        ori_image
+    )
     img_with_heatmap = img_with_heatmap / np.max(img_with_heatmap) * 255
     return img_with_heatmap
 
@@ -125,14 +138,14 @@ def localize2(cam_feature, ori_image):
                 if j > maxj:
                     maxj = j
     img_with_window = np.uint8(ori_image)
-    img_with_window[mini:mini+2, minj:maxj, 0:1] = 255
-    img_with_window[mini:mini+2, minj:maxj, 1:3] = 0
-    img_with_window[maxi-2:maxi, minj:maxj, 0:1] = 255
-    img_with_window[maxi-2:maxi, minj:maxj, 1:3] = 0
-    img_with_window[mini:maxi, minj:minj+2, 0:1] = 255
-    img_with_window[mini:maxi, minj:minj+2, 1:3] = 0
-    img_with_window[mini:maxi, maxj-2:maxj, 0:1] = 255
-    img_with_window[mini:maxi, maxj-2:maxj, 1:3] = 0
+    img_with_window[mini : mini + 2, minj:maxj, 0:1] = 255
+    img_with_window[mini : mini + 2, minj:maxj, 1:3] = 0
+    img_with_window[maxi - 2 : maxi, minj:maxj, 0:1] = 255
+    img_with_window[maxi - 2 : maxi, minj:maxj, 1:3] = 0
+    img_with_window[mini:maxi, minj : minj + 2, 0:1] = 255
+    img_with_window[mini:maxi, minj : minj + 2, 1:3] = 0
+    img_with_window[mini:maxi, maxj - 2 : maxj, 0:1] = 255
+    img_with_window[mini:maxi, maxj - 2 : maxj, 1:3] = 0
 
     return img_with_window
 
@@ -167,7 +180,7 @@ def get_all_images(dirpath):
     return [p for p in get_all_files(dirpath) if is_valid_image(p)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # net = resnet50(pretrained=True)
 
     # net.load_state_dict(
@@ -176,21 +189,26 @@ if __name__ == '__main__':
     # net = torch.nn.DataParallel(net)
     # checkpoint = torch.load("./models/fuse_start.pth.tar")
     # print(checkpoint['state_dict'].keys())
-    
-    global_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")['net']
-    local_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")['net']
+
+    global_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")["net"]
+    local_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")["net"]
     net = fusenet(global_branch, local_branch)
+    net.load_state_dict(
+        torch.load("output/lqn_mura_fuse_v2/backups/fuse_best_model (2).pth.tar")[
+            "state_dict"
+        ]
+    )
     net = torch.nn.DataParallel(net)
 
-    imgs = get_all_images("./data/processed-lqn")[:1]
+    imgs = get_all_images("./data/processed-lqn")
     for img_path in tqdm(imgs, desc="Localize "):
-        ori_image = Image.open(img_path).convert('RGB')
+        ori_image = Image.open(img_path).convert("RGB")
         cam_feature = generate_grad_cam(net, ori_image)
         result1 = localize(cam_feature, ori_image)
         # result2 = localize2(cam_feature, ori_image)
         # result2 = Image.fromarray(result2)
 
-        new_path = img_path.replace("processed-lqn", "test")
+        new_path = img_path.replace("processed-lqn", "test-fuse-0")
         os.makedirs(Path(new_path).parent, exist_ok=True)
 
         cv2.imwrite(new_path, result1)
