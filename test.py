@@ -7,7 +7,7 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 from model import resnet50, fusenet
-import shutil
+from utils import get_all_images
 from pathlib import Path
 
 Trans = transforms.Compose(
@@ -102,82 +102,28 @@ def localize(cam_feature, ori_image):
     return img_with_heatmap
 
 
-def localize2(cam_feature, ori_image):
-    """
-    localize the abnormality region using grad_cam feature
-    :param cam_feature: cam_feature by generate_grad_cam
-    :param ori_image: input of the network
-    :return: img with heatmap, the abnormality region is in a red window
-    """
+def heatmap2segment(cam_feature, ori_image):
     ori_image = np.array(ori_image)
     cam_feature = cv2.resize(cam_feature, (ori_image.shape[1], ori_image.shape[0]))
-    crop = np.uint8(cam_feature > 0.7 * 255)
-    h = ori_image.shape[0]
-    w = ori_image.shape[1]
-    ret, markers = cv2.connectedComponents(crop)
-    branch_size = np.zeros(ret)
-    for i in range(h):
-        for j in range(w):
-            t = int(markers[i][j])
-            branch_size[t] += 1
-    branch_size[0] = 0
-    max_branch = np.argmax(branch_size)
-    mini = h
-    minj = w
-    maxi = -1
-    maxj = -1
-    for i in range(h):
-        for j in range(w):
-            if markers[i][j] == max_branch:
-                if i < mini:
-                    mini = i
-                if i > maxi:
-                    maxi = i
-                if j < minj:
-                    minj = j
-                if j > maxj:
-                    maxj = j
-    img_with_window = np.uint8(ori_image)
-    img_with_window[mini : mini + 2, minj:maxj, 0:1] = 255
-    img_with_window[mini : mini + 2, minj:maxj, 1:3] = 0
-    img_with_window[maxi - 2 : maxi, minj:maxj, 0:1] = 255
-    img_with_window[maxi - 2 : maxi, minj:maxj, 1:3] = 0
-    img_with_window[mini:maxi, minj : minj + 2, 0:1] = 255
-    img_with_window[mini:maxi, minj : minj + 2, 1:3] = 0
-    img_with_window[mini:maxi, maxj - 2 : maxj, 0:1] = 255
-    img_with_window[mini:maxi, maxj - 2 : maxj, 1:3] = 0
 
-    return img_with_window
+    crop = np.uint8(cam_feature < 0.1 * 255)
 
-
-def is_valid_image(file_name):
-    if not os.path.isfile(file_name):
-        return False
-    try:
-        with Image.open(file_name) as img:
-            img.verify()
-            return True
-    except (IOError, SyntaxError):
-        return False
-
-
-def get_all_files(dirpath):
-    return sum(
-        [
-            [os.path.join(os_walks[0], f) for f in os_walks[2]]
-            for os_walks in os.walk(dirpath)
-        ],
-        [],
+    (totalLabels, label_ids, values, centroid) = (
+        cv2.connectedComponentsWithStatsWithAlgorithm(crop, 4, cv2.CV_32S, ccltype=1)
+    )
+    print(
+        f"totalLabels: {totalLabels}, label_ids: {label_ids}, values: {values}, centroid: {centroid}"
     )
 
+    output = np.zeros(ori_image.shape, dtype="uint8")
 
-def copy(src_path, dst_path):
-    os.makedirs(dst_path.parent, exist_ok=True)
-    shutil.copyfile(src_path, dst_path)
+    # Loop through each component
+    for i in range(1, totalLabels):
+        componentMask = (label_ids == i).astype("uint8") * 255
+        output = cv2.bitwise_or(output, componentMask)
+    output = Image.fromarray(output).convert("RGB")
 
-
-def get_all_images(dirpath):
-    return [p for p in get_all_files(dirpath) if is_valid_image(p)]
+    return output
 
 
 if __name__ == "__main__":
@@ -190,14 +136,11 @@ if __name__ == "__main__":
     # checkpoint = torch.load("./models/fuse_start.pth.tar")
     # print(checkpoint['state_dict'].keys())
 
-    global_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")["net"]
-    local_branch = torch.load("./output/lqn_mura_v2/model/best_model.pth.tar")["net"]
-    net = fusenet(global_branch, local_branch)
-    net.load_state_dict(
-        torch.load("output/lqn_mura_fuse_v2/backups/fuse_best_model (2).pth.tar")[
-            "state_dict"
-        ]
-    )
+    
+    state_dict = torch.load("./models/fuse_best_model.pth (1).tar")["state_dict"]
+    net = fusenet()
+    net.load_state_dict(state_dict)
+    net.set_fcweights()
     net = torch.nn.DataParallel(net)
 
     imgs = get_all_images("./data/processed-lqn")
