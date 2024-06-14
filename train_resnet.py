@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 
+import csv
 import numpy as np
 import pandas as pd
 import torch
@@ -145,15 +146,15 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             weights = weights.unsqueeze(1)
 
             # update loss metric
-            # loss = F.binary_cross_entropy(outputs, labels.float(), weights)
-            loss = criterion(outputs, labels.to(config.device).float())
+            loss = F.binary_cross_entropy(outputs, labels.to(config.device).float(), weights)
+            # loss = criterion(outputs, labels.to(config.device).float())
             losses.update(loss.item(), inputs.size(0))
 
             corrects = torch.sum(preds.view_as(labels) == labels.float().data)
             acc = corrects.item() / inputs.size(0)
             accs.update(acc, inputs.size(0))
 
-            auc.auc(preds, labels)
+            auc.add(preds, labels)
         pbar.set_description("EPOCH[{}][{}/{}]".format(epoch, k, len(valid_loader)))
         pbar.set_postfix(
             loss=":{:.4f}".format(losses.avg),
@@ -203,15 +204,28 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
 
     outspects = {"epoch_loss": losses.avg, "epoch_acc": total_acc, "epoch_auc": auc_val}
 
-    report = avg_corrects.copy()
-    report.update(outspects)
-
-    df = pd.DataFrame.from_dict(report, orient="index")
+    df = pd.DataFrame(
+        {
+            "ELBOW": [avg_corrects["ELBOW"]],
+            "FINGER": [avg_corrects["FINGER"]],
+            "FOREARM": [avg_corrects["FOREARM"]],
+            "HAND": [avg_corrects["HAND"]],
+            "HUMERUS": [avg_corrects["HUMERUS"]],
+            "SHOULDER": [avg_corrects["SHOULDER"]],
+            "WRIST": [avg_corrects["WRIST"]],
+            "FEMUR": [avg_corrects["FEMUR"]],
+            "LEG": [avg_corrects["LEG"]],
+            "KNEE": [avg_corrects["KNEE"]],
+            "epoch_loss": [outspects["epoch_loss"]],
+            "epoch_acc": [outspects["epoch_acc"]],
+            "epoch_auc": [outspects["epoch_auc"]],
+        }
+    )
     if os.path.isfile(config.acc_path):
         csv = pd.read_csv(config.acc_path)
-        pd.concat([csv, df]).to_csv(config.acc_path)
+        pd.concat([csv, df]).to_csv(config.acc_path, index=False)
     else:
-        df.to_csv(config.acc_path)
+        df.to_csv(config.acc_path, index=False)
 
     return outspects
 
