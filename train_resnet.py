@@ -146,8 +146,8 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             weights = weights.unsqueeze(1)
 
             # update loss metric
-            loss = F.binary_cross_entropy(outputs, labels.to(config.device).float(), weights)
-            # loss = criterion(outputs, labels.to(config.device).float())
+            # loss = F.binary_cross_entropy(outputs, labels.to(config.device).float(), weights)
+            loss = criterion(outputs, labels.to(config.device).float())
             losses.update(loss.item(), inputs.size(0))
 
             corrects = torch.sum(preds.view_as(labels) == labels.float().data)
