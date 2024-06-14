@@ -3,6 +3,7 @@ import os
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,14 +15,8 @@ from tqdm import tqdm
 
 from common import config
 from dataset import calc_data_weights, get_dataloaders
-from model import (
-    GLOBAL_BRANCH_DIR,
-    LOCAL_BRANCH_DIR,
-    densenet169,
-    fusenet,
-    resnet50,
-    resnet101,
-)
+from model import (GLOBAL_BRANCH_DIR, LOCAL_BRANCH_DIR, densenet169, fusenet,
+                   resnet50, resnet101)
 from utils import AUCMeter, AverageMeter, TrainClock, save_args
 
 torch.backends.cudnn.benchmark = True
@@ -87,9 +82,9 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         labels = labels.unsqueeze(1)
         weights = weights.unsqueeze(1)
 
-        loss = F.binary_cross_entropy(
-            outputs, labels.to(config.device).float(), weights
-        )
+        # loss = F.binary_cross_entropy(
+        #     outputs, labels.to(config.device).float(), weights
+        # )
         loss = criterion(outputs, labels.to(config.device).float())
         losses.update(loss.item(), inputs.size(0))
 
@@ -98,6 +93,7 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         accs.update(acc, inputs.size(0))
 
         # compute gradient and do SGD step
+        loss.requires_grad_(True)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -150,14 +146,14 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
 
             # update loss metric
             # loss = F.binary_cross_entropy(outputs, labels.float(), weights)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels.to(config.device).float())
             losses.update(loss.item(), inputs.size(0))
 
             corrects = torch.sum(preds.view_as(labels) == labels.float().data)
             acc = corrects.item() / inputs.size(0)
             accs.update(acc, inputs.size(0))
 
-            auc.add(preds, labels)
+            auc.auc(preds, labels)
         pbar.set_description("EPOCH[{}][{}/{}]".format(epoch, k, len(valid_loader)))
         pbar.set_postfix(
             loss=":{:.4f}".format(losses.avg),
@@ -206,6 +202,17 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
     torch.cuda.empty_cache()
 
     outspects = {"epoch_loss": losses.avg, "epoch_acc": total_acc, "epoch_auc": auc_val}
+
+    report = avg_corrects.copy()
+    report.update(outspects)
+
+    df = pd.DataFrame.from_dict(report, orient="index")
+    if os.path.isfile(config.acc_path):
+        csv = pd.read_csv(config.acc_path)
+        pd.concat([csv, df]).to_csv(config.acc_path)
+    else:
+        df.to_csv(config.acc_path)
+
     return outspects
 
 
@@ -223,7 +230,12 @@ def main():
         help="initial learning rate",
     )
     parser.add_argument(
-        "-c", "--continue", dest="continue_path", type=str, required=False
+        "-c",
+        "--continue",
+        dest="continue_path",
+        default="./output/lqn_mura_v3/model/best_model.pth.tar",
+        type=str,
+        required=False,
     )
     parser.add_argument("--exp_name", default=config.exp_name, type=str, required=False)
     parser.add_argument("--drop_rate", default=0, type=float, required=False)
@@ -280,7 +292,7 @@ def main():
     if args.only_fc:
         optimizer = optim.Adam(sess.net.module.classifier.parameters(), args.lr)
     else:
-        print("Traun all parameters")
+        print("Train all parameters")
         optimizer = optim.Adam(sess.net.parameters(), args.lr)
 
     scheduler = ReduceLROnPlateau(

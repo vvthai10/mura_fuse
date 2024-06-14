@@ -5,7 +5,7 @@ import torch
 
 class Config:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    exp_name = "lqn_mura_fuse_v2"
+    exp_name = "lqn_mura_v3"
     data_dir = "./data/"
     output_dir = "./output/"
     exp_dir = os.path.join(output_dir, exp_name)
@@ -26,6 +26,8 @@ class Config:
         "LEG",
         "KNEE",
     ]
+    
+    acc_path = os.path.join(exp_dir, "acc.csv")
 
     def make_dir(self):
         self.exp_dir = os.path.join("output", self.exp_name)

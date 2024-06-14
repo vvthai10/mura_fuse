@@ -36,7 +36,7 @@ invTrans = transforms.Compose(
 )
 
 
-def generate_grad_cam(net, ori_image):
+def generate_grad_cam(net, ori_image, net_name="fusenet"):
     """
     :param net: deep learning network(ResNet DataParallel object)
     :param ori_image: the original image
@@ -55,9 +55,13 @@ def generate_grad_cam(net, ori_image):
         nonlocal gradient
         gradient = grad_out[0].data.cpu().numpy()
 
-    # print(net.module)
-    net.module.global_branch.layer4.register_forward_hook(func_f)
-    net.module.global_branch.layer4.register_backward_hook(func_b)
+    if net_name == "fusenet":
+        net.module.global_branch.layer4.register_forward_hook(func_f)
+        net.module.global_branch.layer4.register_backward_hook(func_b)
+    else:        
+        net.module.layer4.register_forward_hook(func_f)
+        net.module.layer4.register_backward_hook(func_b)
+        
 
     out = net(input_image.unsqueeze(0))
 
@@ -106,14 +110,14 @@ def heatmap2segment(cam_feature, ori_image):
     ori_image = np.array(ori_image)
     cam_feature = cv2.resize(cam_feature, (ori_image.shape[1], ori_image.shape[0]))
 
-    crop = np.uint8(cam_feature < 0.1 * 255)
+    crop = np.uint8(cam_feature >= 0.7 * 255)
 
     (totalLabels, label_ids, values, centroid) = (
         cv2.connectedComponentsWithStatsWithAlgorithm(crop, 4, cv2.CV_32S, ccltype=1)
     )
-    print(
-        f"totalLabels: {totalLabels}, label_ids: {label_ids}, values: {values}, centroid: {centroid}"
-    )
+    # print(
+    #     f"totalLabels: {totalLabels}, label_ids: {label_ids}, values: {values}, centroid: {centroid}"
+    # )
 
     output = np.zeros(ori_image.shape, dtype="uint8")
 
@@ -127,33 +131,41 @@ def heatmap2segment(cam_feature, ori_image):
 
 
 if __name__ == "__main__":
-    # net = resnet50(pretrained=True)
 
-    # net.load_state_dict(
-    #     torch.load("./output/lqn_mura_v2/model/fuse_start.pth.tar")
-    # )
-    # net = torch.nn.DataParallel(net)
-    # checkpoint = torch.load("./models/fuse_start.pth.tar")
-    # print(checkpoint['state_dict'].keys())
-
+    net = resnet50(pretrained=True)
+    net.load_state_dict(
+        torch.load("./output/lqn_mura_v2/model/epoch50.pth.tar")['net']
+    )
     
-    state_dict = torch.load("./models/fuse_best_model.pth (1).tar")["state_dict"]
-    net = fusenet()
-    net.load_state_dict(state_dict)
-    net.set_fcweights()
     net = torch.nn.DataParallel(net)
+    net = net.cuda()
 
     imgs = get_all_images("./data/processed-lqn")
     for img_path in tqdm(imgs, desc="Localize "):
         ori_image = Image.open(img_path).convert("RGB")
-        cam_feature = generate_grad_cam(net, ori_image)
-        result1 = localize(cam_feature, ori_image)
-        # result2 = localize2(cam_feature, ori_image)
-        # result2 = Image.fromarray(result2)
 
-        new_path = img_path.replace("processed-lqn", "test-fuse-0")
+        cam_feature = generate_grad_cam(net, ori_image, net_name="res")
+        heatmap = localize(cam_feature, ori_image)
+        segment = heatmap2segment(cam_feature, ori_image.convert("L"))
+
+        imgs = [ori_image, Image.fromarray(np.uint8(heatmap)).convert("RGB"), segment]
+
+        # Concat images
+        widths, heights = zip(*(i.size for i in imgs))
+
+        total_width = sum(widths)
+        max_height = max(heights)
+
+        result = Image.new("RGB", (total_width, max_height))
+
+        x_offset = 0
+        for im in imgs:
+            result.paste(im, (x_offset, 0))
+            x_offset += im.size[0]
+
+        new_path = img_path.replace("processed-lqn", "test-res-2")
         os.makedirs(Path(new_path).parent, exist_ok=True)
 
-        cv2.imwrite(new_path, result1)
-        print(f"Done {new_path}")
+        cv2.imwrite(new_path, np.array(result))
+        # print(f"Done {new_path}")
         # result2.save(img_path[:-4] + "_w.png")

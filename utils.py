@@ -102,14 +102,14 @@ class AUCMeter():
         self.auc = None
 
     def add(self, output, target):
-        """
+        
         if torch.is_tensor(output):
             output = output.cpu().squeeze().detach().numpy()
         if torch.is_tensor(target):
             target = target.cpu().squeeze().detach().numpy()
         elif isinstance(target, numbers.Number):
             target = np.asarray([target])
-        """
+        
         if np.ndim(output) == 0:
             output = [output]
         assert np.ndim(output) == 1, \
