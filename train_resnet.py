@@ -233,7 +233,7 @@ def main():
         "-c",
         "--continue",
         dest="continue_path",
-        default="./output/lqn_mura_v3/model/best_model.pth.tar",
+        # default="./output/lqn_mura_v3/model/best_model.pth.tar",
         type=str,
         required=False,
     )
