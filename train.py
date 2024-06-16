@@ -2,7 +2,9 @@ import argparse
 import os
 import time
 
+import csv
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,13 +17,7 @@ from tqdm import tqdm
 from common import config
 from dataset import calc_data_weights, get_dataloaders
 from model import (
-    GLOBAL_BRANCH_DIR,
-    LOCAL_BRANCH_DIR,
-    densenet169,
-    fusenet,
-    resnet50,
-    resnet101,
-)
+                   resnet50, resnet101)
 from utils import AUCMeter, AverageMeter, TrainClock, save_args
 
 torch.backends.cudnn.benchmark = True
@@ -72,6 +68,7 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         file_paths = data["meta_data"]["file_path"]
         inputs = inputs.to(config.device)
         labels = labels.to(config.device)
+        inputs = inputs.unsqueeze(1)
 
         weights = [
             LOSS_WEIGHTS[labels[i]][study_type[i]] for i in range(inputs.size(0))
@@ -87,9 +84,11 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         labels = labels.unsqueeze(1)
         weights = weights.unsqueeze(1)
 
-        loss = F.binary_cross_entropy(
-            outputs, labels.to(config.device).float(), weights
-        )
+        # loss = F.binary_cross_entropy(
+        #     outputs, labels.to(config.device).float(), weights
+        # )
+
+        criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
         loss = criterion(outputs, labels.to(config.device).float())
         losses.update(loss.item(), inputs.size(0))
 
@@ -98,6 +97,7 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         accs.update(acc, inputs.size(0))
 
         # compute gradient and do SGD step
+        loss.requires_grad_(True)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -133,6 +133,7 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
         study_type = data["meta_data"]["study_type"]
         inputs = inputs.to(config.device)
         labels = labels.to(config.device)
+        inputs = inputs.unsqueeze(1)
 
         weights = [
             LOSS_WEIGHTS[labels[i]][study_type[i]] for i in range(inputs.size(0))
@@ -149,8 +150,9 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             weights = weights.unsqueeze(1)
 
             # update loss metric
-            # loss = F.binary_cross_entropy(outputs, labels.float(), weights)
-            loss = criterion(outputs, labels)
+            # loss = F.binary_cross_entropy(outputs, labels.to(config.device).float(), weights)
+            criterion = torch.nn.BCEWithLogitsLoss(weight=weights)
+            loss = criterion(outputs, labels.to(config.device).float())
             losses.update(loss.item(), inputs.size(0))
 
             corrects = torch.sum(preds.view_as(labels) == labels.float().data)
@@ -206,6 +208,31 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
     torch.cuda.empty_cache()
 
     outspects = {"epoch_loss": losses.avg, "epoch_acc": total_acc, "epoch_auc": auc_val}
+
+    df = pd.DataFrame(
+        {
+            "epoch": [epoch],
+            "ELBOW": [avg_corrects["ELBOW"]],
+            "FINGER": [avg_corrects["FINGER"]],
+            "FOREARM": [avg_corrects["FOREARM"]],
+            "HAND": [avg_corrects["HAND"]],
+            "HUMERUS": [avg_corrects["HUMERUS"]],
+            "SHOULDER": [avg_corrects["SHOULDER"]],
+            "WRIST": [avg_corrects["WRIST"]],
+            "FEMUR": [avg_corrects["FEMUR"]],
+            "LEG": [avg_corrects["LEG"]],
+            "KNEE": [avg_corrects["KNEE"]],
+            "epoch_loss": [outspects["epoch_loss"]],
+            "epoch_acc": [outspects["epoch_acc"]],
+            "epoch_auc": [outspects["epoch_auc"]],
+        }
+    )
+    if os.path.isfile(config.acc_path):
+        csv = pd.read_csv(config.acc_path)
+        pd.concat([csv, df]).to_csv(config.acc_path, index=False)
+    else:
+        df.to_csv(config.acc_path, index=False)
+
     return outspects
 
 
@@ -223,7 +250,12 @@ def main():
         help="initial learning rate",
     )
     parser.add_argument(
-        "-c", "--continue", dest="continue_path", type=str, required=False
+        "-c",
+        "--continue",
+        dest="continue_path",
+        # default="./output/lqn_mura_v3/model/best_model.pth.tar",
+        type=str,
+        required=False,
     )
     parser.add_argument("--exp_name", default=config.exp_name, type=str, required=False)
     parser.add_argument("--drop_rate", default=0, type=float, required=False)
@@ -244,18 +276,6 @@ def main():
         net = resnet50(pretrained=True, drop_rate=args.drop_rate)
     elif args.net == "resnet101":
         net = resnet101(pretrained=True, drop_rate=args.drop_rate)
-    elif args.net == "densenet121":
-        net = models.densenet121(pretrained=True)
-        net.classifier = nn.Sequential(nn.Linear(1024, 1), nn.Sigmoid())
-    elif args.net == "densenet169":
-        net = densenet169(pretrained=True, drop_rate=args.drop_rate)
-    elif args.net == "fusenet":
-        global_branch = torch.load(GLOBAL_BRANCH_DIR)["net"]
-        local_branch = torch.load(LOCAL_BRANCH_DIR)["net"]
-        net = fusenet(global_branch, local_branch)
-        del global_branch, local_branch
-    else:
-        raise NameError
 
     net = net.cuda()
     sess = Session(config, net=net)
@@ -280,7 +300,7 @@ def main():
     if args.only_fc:
         optimizer = optim.Adam(sess.net.module.classifier.parameters(), args.lr)
     else:
-        print("Traun all parameters")
+        print("Train all parameters")
         optimizer = optim.Adam(sess.net.parameters(), args.lr)
 
     scheduler = ReduceLROnPlateau(

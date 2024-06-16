@@ -100,6 +100,7 @@ def get_dataloaders(name, batch_size, shuffle, num_workers=32, data_dir=config.d
             transforms.Resize((256, 256)),
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
             transforms.RandomRotation(30),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
