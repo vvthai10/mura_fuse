@@ -2,8 +2,8 @@ import os
 
 import torch
 
-# output =  "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse"
-output =  "./output"
+output =  "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse"
+# output =  "./output"
 
 class Config:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
