@@ -306,7 +306,7 @@ def main():
     )
 
     # start training
-    for e in range(args.epochs):
+    for e in range(clock.epoch, args.epochs):
         train_out = train_model(
             train_loader, sess.net, criterion, optimizer, clock.epoch
         )
