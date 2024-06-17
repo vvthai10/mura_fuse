@@ -82,7 +82,7 @@ def generate_grad_cam(net, ori_image):
     cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))
     cam = 1.0 - cam
     cam = np.uint8(cam * 255)
-
+    print(cam.shape)
     return cam
 
 
@@ -132,11 +132,11 @@ def heatmap2segment(cam_feature, ori_image):
 if __name__ == "__main__":
 
     net = resnet50(pretrained=True)
-    # net.load_state_dict(torch.load("./models/mura_lqn_v3/epoch52.pth.tar")["net"])
+    net.load_state_dict(torch.load("./models/mura_lqn_v3/epoch52.pth.tar")["net"])
     state_dict = torch.load("./models/mura_lqn_v4/epoch15.pth.tar")["net"]
-    if isinstance(state_dict, torch.nn.DataParallel):
-        state_dict = state_dict.module
-    net.load_state_dict(state_dict)
+    # if isinstance(state_dict, torch.nn.DataParallel):
+    #     state_dict = state_dict.module
+    # net.load_state_dict(state_dict)
     net = net.cuda()
     net.eval()
 

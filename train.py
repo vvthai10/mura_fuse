@@ -68,7 +68,6 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
         file_paths = data["meta_data"]["file_path"]
         inputs = inputs.to(config.device)
         labels = labels.to(config.device)
-        inputs = inputs.unsqueeze(1)
 
         weights = [
             LOSS_WEIGHTS[labels[i]][study_type[i]] for i in range(inputs.size(0))
@@ -133,7 +132,6 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
         study_type = data["meta_data"]["study_type"]
         inputs = inputs.to(config.device)
         labels = labels.to(config.device)
-        inputs = inputs.unsqueeze(1)
 
         weights = [
             LOSS_WEIGHTS[labels[i]][study_type[i]] for i in range(inputs.size(0))

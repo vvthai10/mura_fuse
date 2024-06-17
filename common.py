@@ -7,7 +7,7 @@ output =  "./output"
 
 class Config:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    exp_name = "lqn_mura_v4"
+    exp_name = "lqn_mura_v5"
     data_dir = "./data/"
     output_dir = output
     exp_dir = os.path.join(output_dir, exp_name)
