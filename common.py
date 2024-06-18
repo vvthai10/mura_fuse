@@ -1,5 +1,4 @@
 import os
-
 import torch
 
 output =  "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse"
@@ -14,7 +13,6 @@ class Config:
     log_dir = os.path.join(exp_dir, "log/")
     model_dir = os.path.join(exp_dir, "model/")
     study_type = [
-        # Original
         "ELBOW",
         "FINGER",
         "FOREARM",
@@ -22,7 +20,6 @@ class Config:
         "HUMERUS",
         "SHOULDER",
         "WRIST",
-        # New
         "FEMUR",
         "LEG",
         "KNEE",
