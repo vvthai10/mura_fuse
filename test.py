@@ -60,9 +60,9 @@ def generate_grad_cam(net, ori_image):
 
     # print(net.module)
     net.module.layer4.register_forward_hook(forward_hook)
-    net.module.layer4.register_backward_hook(backward_hook)
+    net.module.layer4.register_full_backward_hook(backward_hook)
 
-    out = net(input_image.unsqueeze(0).unsqueeze(1))
+    out = net(input_image.unsqueeze(0))
 
     pred = out.data > 0.5
 
@@ -82,7 +82,6 @@ def generate_grad_cam(net, ori_image):
     cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))
     cam = 1.0 - cam
     cam = np.uint8(cam * 255)
-    print(cam.shape)
     return cam
 
 
@@ -132,15 +131,12 @@ def heatmap2segment(cam_feature, ori_image):
 if __name__ == "__main__":
 
     net = resnet50(pretrained=True)
-    net.load_state_dict(torch.load("./models/mura_lqn_v3/epoch52.pth.tar")["net"])
-    state_dict = torch.load("./models/mura_lqn_v4/epoch15.pth.tar")["net"]
-    # if isinstance(state_dict, torch.nn.DataParallel):
-    #     state_dict = state_dict.module
-    # net.load_state_dict(state_dict)
+    net.load_state_dict(torch.load("./models/mura_lqn_v5/epoch19.pth.tar")["net"])
+    net = torch.nn.DataParallel(net)
     net = net.cuda()
     net.eval()
 
-    imgs = get_all_images("./data/processed-lqn")[24:30]
+    imgs = get_all_images("./data/processed-lqn")
 
     for img_path in tqdm(imgs, desc="Localize "):
         ori_image = Image.open(img_path).convert("RGB")
@@ -164,7 +160,7 @@ if __name__ == "__main__":
             result.paste(im, (x_offset, 0))
             x_offset += im.size[0]
 
-        new_path = img_path.replace("processed-lqn", "test-res-4")
+        new_path = img_path.replace("processed-lqn", "test-res-5")
         os.makedirs(Path(new_path).parent, exist_ok=True)
 
         cv2.imwrite(new_path, np.array(result))
