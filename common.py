@@ -6,7 +6,7 @@ output =  "/content/drive/MyDrive/Thesis/Sources/storages/mura-fuse"
 
 class Config:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    exp_name = "lqn_mura_v5"
+    exp_name = "lqn_mura_v6"
     data_dir = "./data/"
     output_dir = output
     exp_dir = os.path.join(output_dir, exp_name)
