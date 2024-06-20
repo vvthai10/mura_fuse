@@ -131,7 +131,9 @@ def heatmap2segment(cam_feature, ori_image):
 if __name__ == "__main__":
 
     net = resnet50(pretrained=True)
-    net.load_state_dict(torch.load("./models/mura_lqn_v5/epoch19.pth.tar")["net"])
+    net.load_state_dict(
+        torch.load("./models/mura_lqn_v5/best_model.pth (2).tar")["net"]
+    )
     net = torch.nn.DataParallel(net)
     net = net.cuda()
     net.eval()
@@ -160,7 +162,7 @@ if __name__ == "__main__":
             result.paste(im, (x_offset, 0))
             x_offset += im.size[0]
 
-        new_path = img_path.replace("processed-lqn", "test-res-5")
+        new_path = img_path.replace("processed-lqn", "test-res-5-best")
         os.makedirs(Path(new_path).parent, exist_ok=True)
 
         cv2.imwrite(new_path, np.array(result))

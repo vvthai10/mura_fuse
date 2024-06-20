@@ -19,6 +19,7 @@ from dataset import calc_data_weights, get_dataloaders
 from model import (
                    resnet50, resnet101)
 from utils import AUCMeter, AverageMeter, TrainClock, save_args
+from sklearn.metrics import roc_auc_score
 
 torch.backends.cudnn.benchmark = True
 LOSS_WEIGHTS = calc_data_weights()
@@ -54,7 +55,7 @@ class Session:
         self.best_val_acc = checkpoint["best_val_acc"]
 
 
-def train_model(train_loader, model, criterion, optimizer, epoch):
+def train_model(train_loader, model, optimizer, epoch):
     losses = AverageMeter("epoch_loss")
     accs = AverageMeter("epoch_acc")
 
@@ -111,7 +112,7 @@ def train_model(train_loader, model, criterion, optimizer, epoch):
 
 
 # original validation function
-def valid_model(valid_loader, model, criterion, optimizer, epoch):
+def valid_model(valid_loader, model, optimizer, epoch):
     # using model to predict, based on dataloader
     losses = AverageMeter("epoch_loss")
     accs = AverageMeter("epoch_acc")
@@ -122,6 +123,7 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
     study_out = {}  # study level output
     study_label = {}  # study level label
     auc = AUCMeter()
+    # auc = 0
 
     # evaluate the model
     pbar = tqdm(valid_loader)
@@ -158,6 +160,7 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
             accs.update(acc, inputs.size(0))
 
             auc.add(preds, labels)
+
         pbar.set_description("EPOCH[{}][{}/{}]".format(epoch, k, len(valid_loader)))
         pbar.set_postfix(
             loss=":{:.4f}".format(losses.avg),
@@ -237,9 +240,11 @@ def valid_model(valid_loader, model, criterion, optimizer, epoch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", default=50, type=int, help="epoch number")
+
     parser.add_argument(
         "-b", "--batch_size", default=16, type=int, help="mini-batch size"
     )
+
     parser.add_argument(
         "--lr",
         "--learning_rate",
@@ -247,6 +252,7 @@ def main():
         type=float,
         help="initial learning rate",
     )
+
     parser.add_argument(
         "-c",
         "--continue",
@@ -256,9 +262,9 @@ def main():
         required=False,
     )
     parser.add_argument("--exp_name", default=config.exp_name, type=str, required=False)
-    parser.add_argument("--drop_rate", default=0, type=float, required=False)
-    parser.add_argument("--only_fc", action="store_true", help="only train fc layers")
+
     parser.add_argument("--net", default="resnet50", type=str, required=False)
+
     parser.add_argument(
         "--local", default=True, action="store_true", help="train local branch"
     )
@@ -291,15 +297,7 @@ def main():
     tb_writer = sess.tb_writer
     sess.save_checkpoint("start.pth.tar")
 
-    # set criterion, optimizer and scheduler
-    # criterion = nn.BCELoss().cuda()  # not used
-    criterion = torch.nn.BCEWithLogitsLoss()
-
-    if args.only_fc:
-        optimizer = optim.Adam(sess.net.module.classifier.parameters(), args.lr)
-    else:
-        print("Train all parameters")
-        optimizer = optim.Adam(sess.net.parameters(), args.lr)
+    optimizer = optim.Adam(sess.net.parameters(), args.lr)
 
     scheduler = ReduceLROnPlateau(
         optimizer, "max", factor=0.1, patience=10, verbose=True
@@ -308,10 +306,10 @@ def main():
     # start training
     for e in range(clock.epoch, args.epochs):
         train_out = train_model(
-            train_loader, sess.net, criterion, optimizer, clock.epoch
+            train_loader, sess.net, optimizer, clock.epoch
         )
         valid_out = valid_model(
-            valid_loader, sess.net, criterion, optimizer, clock.epoch
+            valid_loader, sess.net, optimizer, clock.epoch
         )
 
         tb_writer.add_scalars(
